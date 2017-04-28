@@ -1,0 +1,12 @@
+.THIS.whiteBody {
+	background-color: white;
+}
+
+.THIS .pdfContainer{
+	height:80vh;
+}
+
+.THIS .pdfIframe{
+	width: 100%;
+	height: 100%;
+}

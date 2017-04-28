@@ -1,0 +1,3 @@
+<aura:event type="APPLICATION" access="GLOBAL" description="Raised when Get PDF is clicked by the user in the PriceRight Component">
+	<aura:attribute name="dataForPDF" type="Object"/>
+</aura:event>

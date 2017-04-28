@@ -1,0 +1,388 @@
+<aura:component access="GLOBAL" implements="flexipage:availableForAllPageTypes,force:appHostable" controller="PriceRightController">
+    <ltng:require styles="/resource/staplesuxdemo/lib/slds202/assets/styles/salesforce-lightning-design-system.css" />
+    <ltng:require scripts="/resource/staplesuxdemo/lib/lodash.min.js" />
+    <aura:registerEvent access="GLOBAL" name="PriceRightGetPDF" type="c:PriceRightGetPDF" description="Triggered when user clicks Get PDF" />
+    <aura:handler name="init" value="{!this}" action="{!c.doInit}" />
+    <aura:attribute name="pricingData" type="Object" />
+    <aura:attribute name="accFilter" type="String" default="" />
+    <aura:attribute name="mmOptions" type="Object" />
+    <aura:attribute name="allowAccSearch" type="Boolean" default="true" />
+    <aura:attribute name="allowLeadSearch" type="Boolean" default="true" />
+    <aura:attribute name="accountId" type="String" default="" access="GLOBAL" />
+    <aura:attribute name="leadId" type="String" default="" access="GLOBAL" />
+    <aura:attribute name="showTitle" type="Boolean" default="true" />
+    <aura:attribute name="sku" type="String" default="" />
+    <aura:attribute name="accountList" type="Object" />
+    <aura:attribute name="skuList" type="Object" />
+    <aura:attribute name="selectedAcc" type="Object" />
+    <aura:attribute name="rplsku" type="Object" />
+    <aura:attribute name="masterAcc" type="String" default="" />
+    <aura:attribute name="menuAlreadyOpen" type="Boolean" default="false" />
+    <aura:handler name="change" value="{!v.skuList}" action="{!c.checkSkus}" />
+    <!-- Spinner -->
+    <div aura:id="_main" id="_main" class="slds-p-around--small slds-m-around--small whiteBody">
+        <div aura:id="_spinner" class="slds-spinner--large slds-container--center slds-hide">
+            <img src="/resource/staplesuxdemo/lib/slds202/assets/images/spinners/slds_spinner_brand.gif" alt="Loading..." />
+            <div class="slds-backdrop slds-backdrop--open"></div>
+        </div>
+        <!-- Main Container-->
+        <div aura:id="_container" id="_container">
+            <aura:if isTrue="{!v.showTitle}">
+                <div class="slds-grid slds-box--x-small slds-theme--inverse slds-m-bottom--small">
+                    <div class="slds-col slds-align--absolute-center slds-text-heading--medium">PriceRight</div>
+                </div>
+            </aura:if>
+            <aura:if isTrue="{!v.allowAccSearch}">
+                <div class="slds-form-element slds-lookup" aura:id="_accountLookup" data-select="single" data-scope="single">
+                    <div class="slds-form-element__control slds-input-has-icon slds-input-has-icon--right">
+                        <c:s1svg class="slds-input__icon slds-icon-text-default" ariaHidden="true" xlinkHref="/resource/staplesuxdemo/lib/slds202/assets/icons/utility-sprite/svg/symbols.svg#search" />
+                        <input aura:id="_account" class="slds-input" type="text" placeholder="Search accounts.." onkeyup="{!c.filterAccounts}" value="{!v.accFilter}" />
+                    </div>
+                    <div aura:id="_lookupDropDown" class="slds-lookup__menu" role="listbox">
+                        <div aura:id="_lookupPattern">
+                            <button class="slds-button slds-m-left--small" onclick="{!c.getAccountList}">
+                                <c:s1svg class="slds-icon slds-icon-text-default slds-icon--x-small" ariaHidden="true" xlinkHref="/resource/staplesuxdemo/lib/slds202/assets/icons/utility-sprite/svg/symbols.svg#search">
+                                </c:s1svg>
+                                <span class="slds-truncate">&quot;{!v.accFilter}&quot; in accounts</span>
+                            </button>
+                        </div>
+                        <ul aura:id="_lookupList" class="slds-lookup__list slds-hide" role="presentation">
+                            <aura:iteration items="{!v.accountList}" var="item">
+                                <li>
+                                    <a id="{!item.Id}" class="slds-lookup__item-action slds-media slds-media--center" role="option" onclick="{!c.getAccountInfo}">
+                                        <c:s1svg id="{!item.Id}" class="slds-icon slds-icon-standard-account slds-icon--small slds-media__figure" ariaHidden="true" xlinkHref="/resource/staplesuxdemo/lib/slds202/assets/icons/standard-sprite/svg/symbols.svg#account">
+                                        </c:s1svg>
+                                        <div class="slds-media__body" id="{!item.Id}">
+                                            <div id="{!item.Id}" class="slds-lookup__result-text">{!item.Name}</div>
+                                            <span id="{!item.Id}" class="slds-lookup__result-meta slds-text-body--small">{!item.Master_Account_Division__c}</span>
+                                        </div>
+                                    </a>
+                                </li>
+                            </aura:iteration>
+                        </ul>
+                    </div>
+                </div>
+            </aura:if>
+            <aura:if isTrue="{!v.allowLeadSearch}">
+                <div aura:id="_leadLookup">
+                    <div class="slds-form-element slds-m-bottom--small">
+                        <label class="slds-form-element__label" for="_pmSelect">Prospective Midmarket Customers Only</label>
+                        <div class="slds-form-element__control">
+                            <div class="slds-select_container">
+                                <select id="_pmSelect" aura:id="_pmSelect" class="slds-select" onchange="{!c.getAccountInfoFromLead}">
+                                    <aura:iteration items="{!v.mmOptions}" var="item">
+                                        <option value="{!item.value}">{!item.label}</option>
+                                    </aura:iteration>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aura:if>
+            <!-- Body -->
+            <div aura:id="_body" class="slds-hide">
+                <div class="slds-section-title--divider slds-m-bottom--small">
+                    <div class="slds-grid">
+                        <div class="slds-col slds-has-flexi-truncate slds-text-heading--label">
+                            <c:svgIcon svgPath="/resource/staplesuxdemo/lib/slds202/assets/icons/utility-sprite/svg/symbols.svg#bookmark" category="utility" size="small" name="bookmark" class="slds-button__icon slds-button__icon--left slds-icon-text-default" /> Info
+                        </div>
+                    </div>
+                </div>
+                <div class="slds-grid slds-wrap slds-grid--pull-padded slds-m-bottom--small">
+                    <div class="slds-col--padded slds-size--1-of-1 slds-medium-size--1-of-4 slds-large-size--1-of-4  slds-has-divider--bottom">
+                        <div class="slds-form-element">
+                            <span class="slds-form-element__label">Account Number</span>
+                            <div class="slds-form-element__control">
+                                <span class="slds-form-element__static">{!v.selectedAcc.AccountNumber}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="slds-col--padded slds-size--1-of-1 slds-medium-size--1-of-4 slds-large-size--1-of-4  slds-has-divider--bottom">
+                        <div class="slds-form-element">
+                            <span class="slds-form-element__label">Division</span>
+                            <div class="slds-form-element__control">
+                                <span class="slds-form-element__static">{!v.selectedAcc.Master_Account_Division__c}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="slds-col--padded slds-size--1-of-1 slds-medium-size--1-of-4 slds-large-size--1-of-4  slds-has-divider--bottom">
+                        <div class="slds-form-element">
+                            <span class="slds-form-element__label">Bill To</span>
+                            <div class="slds-form-element__control">
+                                <span class="slds-form-element__static">{!v.selectedAcc.Bill_To_Number__c}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="slds-col--padded slds-size--1-of-1 slds-medium-size--1-of-4 slds-large-size--1-of-4 slds-has-divider--bottom ">
+                        <div class="slds-form-element">
+                            <span class="slds-form-element__label">TPR %</span>
+                            <div class="slds-form-element__control">
+                                <span class="slds-form-element__static">{!v.selectedAcc.Target_Price_Realization_TPR__c}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="slds-section-title--divider slds-m-bottom--small">
+                    <div class="slds-grid">
+                        <div class="slds-col slds-has-flexi-truncate slds-text-heading--label">
+                            <c:svgIcon svgPath="/resource/staplesuxdemo/lib/slds202/assets/icons/standard-sprite/svg/symbols.svg#pricebook" category="utility" size="medium" name="pricebook" class="slds-button__icon slds-button__icon--left slds-icon-text-default" /> Pricing
+                        </div>
+                        <div class="slds-col slds-no-flex slds-grid slds-align-bottom">
+                            <div aura:id="_menu" class="slds-dropdown-trigger slds-dropdown-trigger--click" aria-expanded="true" onclick="{!c.openMenu}">
+                                <button class="slds-button slds-button--icon-border-filled" aria-haspopup="true">
+                                    <c:svgIcon svgPath="/resource/staplesuxdemo/lib/slds202/assets/icons/utility-sprite/svg/symbols.svg#down" category="utility" size="x-small" name="down" class="slds-button__icon slds-icon-text-default" />
+                                </button>
+                                <div class="slds-dropdown slds-dropdown--right slds-dropdown--small slds-nubbin--top-right">
+                                    <ul class="dropdown__list" role="menu">
+                                        <li class="slds-dropdown__item slds-has-divider--bottom">
+                                            <a role="menuitem" onclick="{!c.getPrice}">
+                                                <p class="slds-truncate slds-align-middle">Get Price</p>
+                                                <c:svgIcon svgPath="/resource/staplesuxdemo/lib/slds202/assets/icons/standard-sprite/svg/symbols.svg#pricebook" category="utility" size="small" name="pricebook" class="slds-button__icon slds-icon-text-default slds-m-left--small slds-shrink-none" />
+                                            </a>
+                                        </li>
+                                        <li class="slds-dropdown__item">
+                                            <a role="menuitem" onclick="{!c.getPDF}">
+                                                <p class="slds-truncate slds-align-middle">Get PDF</p>
+                                                <c:svgIcon svgPath="/resource/staplesuxdemo/lib/slds202/assets/icons/doctype-sprite/svg/symbols.svg#pdf" category="doctype" size="x-small" name="pricebook" class="slds-button__icon slds-icon-text-default slds-m-left--small slds-shrink-none" />
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="slds-form-element slds-m-bottom--small">
+                    <div class="slds-grid slds-wrap slds-grid--pull-padded slds-m-bottom--small">
+                        <div class="slds-col--padded slds-size--2-of-3 slds-medium-size--5-of-6 slds-large-size--5-of-6 slds-form-element__control slds-input-has-icon slds-input-has-icon--right">
+                            <!--<ui:inputText  class="slds-input" aura:id="_sku" placeholder="Enter a sku..." value="{!v.sku}"/>-->
+                            <input aura:id="_sku" class="slds-input" type="text" placeholder="Enter SKUs..." value="{!v.sku}" />
+                        </div>
+                        <div class="slds-col--padded slds-size--1-of-3 slds-medium-size--1-of-6 slds-large-size--1-of-6">
+                            <div class="slds-grid">
+                                <button class="slds-button slds-button--brand slds-col--padded slds-size--1-of-1" onclick="{!c.addSku}">Add</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <table class="slds-table slds-table--bordered slds-max-medium-table--stacked-horizontal slds-table--striped slds-table--fixed-layout slds-m-bottom--small slds-no-row-hover">
+                    <thead>
+                        <tr class="slds-text-heading--label">
+                            <th scope="col">
+                                <div class="slds-truncate">SKU</div>
+                            </th>
+                            <th scope="col">
+                                <div class="slds-truncate">Description</div>
+                            </th>
+                            <th scope="col">
+                                <div class="slds-truncate">UOM</div>
+                            </th>
+                            <th scope="col">
+                                <div class="slds-truncate">On Cont</div>
+                            </th>
+                            <th scope="col" class="slds-text-align--center">
+                                <div class="slds-truncate">Floor/</div>
+                                <div class="slds-truncate">Target/</div>
+                                <div class="slds-truncate">Cieling</div>
+                            </th>
+                            <th scope="col" colspan="2">
+                                <div class="slds-truncate slds-text-align--center">Curr. Price</div>
+                            </th>
+                            <th scope="col" colspan="2">
+                                <div class="slds-truncate slds-text-align--center">New Price</div>
+                            </th>
+                            <th scope="col" class="slds-text-align--center">
+                                <div class="slds-truncate">Qty</div>
+                            </th>
+                            <th scope="col" class="slds-text-align--center">
+                                <div class="slds-truncate">Ext Price/</div>
+                                <div class="slds-truncate">Impact</div>
+                            </th>
+                            <th scope="col">
+                                <div class="slds-truncate slds-text-align--center">Del</div>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <aura:iteration items="{!v.skuList}" var="item">
+                            <tr>
+                                <td class="slds-cell-wrap slds-truncate" data-label="SKU">{!item.skuId}
+                                    <aura:if isTrue="{!item.rplAvl}">
+                                        <button id="{!item.skuId}" class="slds-button slds-m-left--small" onclick="{!c.replacesku}">
+                                            <c:svgIcon id="{!item.skuId}" svgPath="/resource/staplesuxdemo/lib/slds202/assets/icons/utility-sprite/svg/symbols.svg#info" category="utitliy" size="small" name="info" class="slds-icon slds-icon-text-default slds-icon--x-small" />
+                                        </button>
+                                    </aura:if>
+                                </td>
+                                <td class="slds-cell-wrap slds-truncate" data-label="Description">{!item.description}</td>
+                                <td class="slds-cell-wrap slds-truncate" data-label="UOM">{!item.uom}</td>
+                                <td class="slds-cell-wrap slds-truncate" data-label="On Contract">{!item.onCont}</td>
+                                <td class="slds-cell-wrap slds-text-align--right" data-label="Floor/Target/Cieling">
+                                    <div>
+                                        <ui:outputCurrency value="{!item.floor}" class="{!item.showPrice}"></ui:outputCurrency>
+                                    </div>
+                                    <div>
+                                        <ui:outputCurrency value="{!item.target}" class="{!item.showPrice}"></ui:outputCurrency>
+                                    </div>
+                                    <div>
+                                        <ui:outputCurrency value="{!item.cieling}" class="{!item.showPrice}"></ui:outputCurrency>
+                                    </div>
+                                </td>
+                                <td class="slds-truncate" data-label="Curr Price" colspan="2">
+                                    <div class="{!item.showPrice}">
+                                        <ui:inputCurrency class="field slds-input slds-resizable__input slds-text-align--right" value="{!item.currPrice}" updateOn="change" change="{!c.updSkuItem}" />
+                                    </div>
+                                </td>
+                                <td class="slds-truncate" data-label="New Price($)" colspan="2">
+                                    <div class="{!item.showPrice}">
+                                        <ui:inputCurrency class="field slds-input slds-resizable__input slds-text-align--right" value="{!item.newPrice}" updateOn="change" change="{!c.updSkuItem}" />
+                                    </div>
+                                </td>
+                                <td class="slds-truncate" data-label="Qty">
+                                    <div class="{!item.showPrice}">
+                                        <ui:inputNumber class="slds-input slds-resizable__input slds-text-align--right" value="{!item.qty}" updateOn="change" change="{!c.updSkuItem}" />
+                                    </div>
+                                </td>
+                                <td class="slds-cell-wrap slds-truncate slds-text-align--right" data-label="Ext Price/Impact">
+                                    <div>
+                                        <ui:outputCurrency value="{!item.extPrice}" class="{!item.showPrice}"></ui:outputCurrency>
+                                    </div>
+                                    <div>
+                                        <ui:outputCurrency value="{!item.impact}" class="{!item.showPrice}"></ui:outputCurrency>
+                                    </div>
+                                </td>
+                                <td id="{!item.skuId}" class="slds-truncate slds-text-align--center" data-label="Del" onclick="{!c.deletesku}">
+                                    <c:svgIcon id="{!item.skuId}" svgPath="/resource/staplesuxdemo/lib/slds202/assets/icons/utility-sprite/svg/symbols.svg#delete" category="utitliy" size="small" name="pricebook" class="slds-button__icon slds-icon-text-error" />
+                                </td>
+                            </tr>
+                        </aura:iteration>
+                    </tbody>
+                </table>
+                <div aura:id="_closeSection" class="slds-hide">
+                    <div class="slds-grid slds-wrap slds-grid--pull-padded slds-m-bottom--small">
+                        <div class="slds-col--padded slds-size--1-of-1 slds-medium-size--1-of-2 slds-large-size--1-of-2 slds-m-bottom--small">
+                            <div class="slds-form-element">
+                                <label class="slds-form-element__label">Customer Name</label>
+                                <div class="slds-form-element__control">
+                                    <!--<input aura:id="_customerName" class="slds-input" type="text" placeholder="Enter name..." value="{!v.pricingData.leadData.Name}" />-->
+                                    <ui:inputText aura:id="_customerName" class="slds-input slds-resizable__input" placeholder="Enter name..." value="{!v.pricingData.leadData.Name}" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="slds-col--padded slds-size--1-of-1 slds-medium-size--1-of-2 slds-large-size--1-of-2 slds-m-bottom--small">
+                            <div class="slds-form-element">
+                                <label class="slds-form-element__label">Comments</label>
+                                <div class="slds-form-element__control">
+                                    <!--<textarea aura:id="_comments" class="slds-textarea" placeholder="Enter additional comments..."></textarea>-->
+                                    <ui:inputTextArea aura:id="_comments" class="slds-textarea" placeholder="Enter additional comments..." value="{!v.pricingData.comments}" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="slds-section-title--divider slds-m-bottom--small">
+                        <div class="slds-grid">
+                            <div class="slds-col slds-has-flexi-truncate slds-text-heading--label">
+                                <c:svgIcon svgPath="/resource/staplesuxdemo/lib/slds202/assets/icons/utility-sprite/svg/symbols.svg#like" category="utility" size="small" name="like" class="slds-button__icon slds-button__icon--left slds-icon-text-default" /> Close the deal
+                            </div>
+                        </div>
+                    </div>
+                    <div class="slds-grid slds-grid--pull-padded slds-m-bottom--small">
+                        <div class="slds-col--padded slds-size--2-of-3 slds-m-bottom--small">
+                            <div class="slds-form-element">
+                                <div class="slds-form-element__control">
+                                    <input aura:id="_masterId" class="slds-input" type="text" placeholder="Account Master Id.." value="{!v.masterAcc}" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="slds-col--padded slds-size--1-of-3 slds-m-bottom--small">
+                            <div class="slds-grid">
+                                <button class="slds-button slds-button--neutral slds-col--padded slds-size--1-of-1" onclick="{!c.getMaster}">Get Master</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="slds-form-element slds-m-bottom--small">
+                        <label class="slds-checkbox--toggle slds-grid slds-grid--vertical-align-center">
+                            <span class="slds-form-element__label m-bottom--">Create Support Request</span>
+                            <input name="checkbox" aura:id="_createSR" type="checkbox" />
+                            <span class="slds-checkbox--faux" data-check-on="On" data-check-off="Off"></span>
+                        </label>
+                    </div>
+                    <div class="slds-grid slds-m-bottom--small">
+                        <button class="slds-button slds-button--brand slds-size--1-of-1 slds-text-heading--medium slds-p-around--small" onclick="{!c.submit}">Submit</button>
+                    </div>
+                </div>
+            </div>
+            <!-- Modal -->
+            <div aura:id="_skuModal" class="slds-hide">
+                <div aria-hidden="false" role="dialog" class="slds-modal slds-fade-in-open">
+                    <div class="slds-modal__container" role="document" tabindex="0">
+                        <div class="slds-modal__header">
+                            <h2 class="slds-text-heading--medium">Staples Match</h2>
+                            <p>Do you want to replace?</p>
+                        </div>
+                        <div class="slds-modal__menu">
+                            <div class="slds-grid">
+                                <ul class="slds-has-dividers--bottom slds-col slds-size--1-of-1">
+                                    <li class="slds-item">
+                                        <p class="slds-truncate slds-text-heading--medium slds-m-bottom--small">Requested</p>
+                                        <div class="slds-tile slds-m-left--small">
+                                            <div class="slds-tile__detail slds-text-body--small">
+                                                <dl class="slds-dl--horizontal">
+                                                    <dt class="slds-dl--horizontal__label">
+                                                        <p class="slds-truncate">SKU:</p>
+                                                    </dt>
+                                                    <dd class="slds-dl--horizontal__detail slds-tile__meta">
+                                                        <p class="slds-truncate">{!v.rplsku.skuId}; {!v.rplsku.description} </p>
+                                                    </dd>
+                                                    <dt class="slds-dl--horizontal__label">
+                                                        <p class="slds-truncate">Price:</p>
+                                                    </dt>
+                                                    <dd class="slds-dl--horizontal__detail slds-tile__meta">
+                                                        <ui:outputCurrency class="slds-truncate" value="{!v.rplsku.currPrice}" />
+                                                    </dd>
+                                                </dl>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li class="slds-item">
+                                        <p class="slds-truncate slds-text-heading--medium slds-m-bottom--small">Matched</p>
+                                        <div class="slds-tile">
+                                            <div class="slds-tile__detail slds-text-body--small">
+                                                <dl class="slds-dl--horizontal">
+                                                    <dt class="slds-dl--horizontal__label">
+                                                        <p class="slds-truncate">SKU:</p>
+                                                    </dt>
+                                                    <dd class="slds-dl--horizontal__detail slds-tile__meta">
+                                                        <p class="slds-truncate">{!v.rplsku.rplSku.skuId}; {!v.rplsku.rplSku.description}</p>
+                                                    </dd>
+                                                    <dt class="slds-dl--horizontal__label">
+                                                        <p class="slds-truncate">Price:</p>
+                                                    </dt>
+                                                    <dd class="slds-dl--horizontal__detail slds-tile__meta">
+                                                        <ui:outputCurrency class="slds-truncate" value="{!v.rplsku.rplSku.currPrice}" />
+                                                    </dd>
+                                                </dl>
+                                            </div>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="slds-grid slds-m-top--x-small">
+                                <div class="slds-col slds-col--padded slds-size--1-of-2">
+                                    <div class="sls-grid">
+                                        <button class="slds-button slds-button--brand slds-col slds-size--1-of-1" onclick="{!c.confirmReplaceSku}">Yes</button>
+                                    </div>
+                                </div>
+                                <div class="slds-col slds-col--padded slds-size--1-of-2">
+                                    <div class="sls-grid">
+                                        <button class="slds-button slds-button--neutral slds-col slds-size--1-of-1" onclick="{!c.cancelReplaceSku}">No</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="slds-backdrop slds-backdrop--open"></div>
+            </div>
+        </div>
+    </div>
+</aura:component>

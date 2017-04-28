@@ -1,0 +1,217 @@
+<apex:component controller="PriceRightController">
+	<apex:attribute name="allowAccSearch" description="Allow Account Search" type="Boolean"/> 
+	<apex:attribute name="allowLeadSearch" description="Allow Lead Search" type="Boolean"/> 
+	<apex:attribute name="showTitle" description="Show the title header bar" type="Boolean"/>
+	<apex:attribute name="accountId" description="Account Id" type="Id"/>
+	<apex:attribute name="leadId" description="Lead Id" type="Id"/>
+	
+
+	<html xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <apex:stylesheet value="{!URLFOR($Resource.staplesuxdemo,'/lib/slds202/assets/styles/salesforce-lightning-design-system.css')}" />
+
+    <head>
+        <style>
+        .pdfContainer {
+            height: 80vh;
+        }
+
+        .pdfIframe {
+            width: 100%;
+            height: 100%;
+            border: 0px;
+        }
+        </style>
+        <script>
+        Visualforce.remoting.timeout = 120000;
+        var pdfContainerSrc = "{!URLFOR($Resource.pdfjs,'/web/viewer.html')}";
+        var priceRightCmp;
+
+        (function() {
+            try {
+                var a = navigator.userAgent;
+                if ((a.indexOf('Salesforce') != -1) && (a.indexOf('iPhone') != -1 || a.indexOf('iPad') != -1) && (a.indexOf('OS/8') != -1 || a.indexOf('OS 8') != -1 || a.indexOf('OS/9') != -1 || a.indexOf('OS 9') != -1) && (a.indexOf('Safari') == -1)) {
+                    var s = document.createElement('style');
+                    if (a.indexOf('OS/8') != -1 || a.indexOf('OS 8') != -1) {
+                        s.innerHTML = "html,html body{overflow: auto;-webkit-overflow-      scrolling:touch;}body{position:absolute;left:0;right:0;top:0;bottom:0;}";
+                    } else if (a.indexOf('OS/9') != -1 || a.indexOf('OS 9') != -1) {
+                        s.innerHTML = "html,html body{overflow: auto;-webkit-overflow-scrolling:auto;}body{position:absolute;left:0;right:0;top:0;bottom:0;}";
+                    }
+                    document.getElementsByTagName('head')[0].appendChild(s);
+                }
+            } catch (e) {}
+        })();
+
+
+        $Lightning.use("c:PriceRightApp", function() {
+            $Lightning.createComponent("c:PriceRight", 
+                {
+                    "allowAccSearch": "{!allowAccSearch}",
+                    "allowLeadSearch": "{!allowLeadSearch}",
+                    "showTitle": "{!showTitle}",
+                    "accountId": "{!accountId}",
+                    "leadId": "{!leadId}"
+                },
+                "_priceRight",
+                function(cmp) {
+                    //Register app event handlers
+                     $A.eventService.addHandler({ "event": "c:PriceRightGetPDF", "handler" : getPDFData});
+                     priceRightCmp = cmp;
+                    
+                });
+        });
+
+        function createIFrame(){
+            var iFrame = document.createElement('iframe');
+            iFrame.setAttribute('src',pdfContainerSrc);
+            iFrame.setAttribute('class','pdfIframe ');
+            iFrame.setAttribute('id','_pdfViewer');
+            document.getElementById('_pdfViewerContainer').appendChild(iFrame);
+        }
+
+        function deleteIFrame(){
+            var iFrame = document.getElementById('_pdfViewer');
+            document.getElementById('_pdfViewerContainer').removeChild(iFrame);
+        }
+
+        function goBack(){
+            deleteIFrame();
+            hide('_pdfContainer');
+            show('_priceRight');
+        }
+
+        function getPDFData(){
+                var pricingData = escape(JSON.stringify(priceRightCmp.get('v.pricingData')));
+                showSpinner();
+                createIFrame();
+                hide('_priceRight');
+                show('_pdfContainer');
+                Visualforce.remoting.Manager.invokeAction(
+                    'PriceRightController.getPdfData', pricingData,
+                    function(result, event) {
+                        hideSpinner();
+                        if (!!result && event.status) {
+                            var ret = JSON.parse(result);
+                            if (ret.success) {
+                                var pdfData = JSON.parse(ret.message);
+                                var pdfjsframe = document.getElementById('_pdfViewer');
+                                var pdfData = base64ToUint8Array(pdfData);
+                                pdfjsframe.contentWindow.PDFViewerApplication.open(pdfData);
+                            } else {
+                                //onModalCloseNavigateTo = 'back';
+                                //showModal('Error in calling VF', ret.message);
+                                console.log('Error is', ret.message);
+                            }
+                        } else {
+                            //onModalCloseNavigateTo = 'back';
+                            //showModal('Error in calling VF', event.message);
+                            console.log('Error is', ret.message);
+                        }
+
+                    }, {
+                        escape: false
+                    });
+        
+        }
+
+        function base64ToUint8Array(base64) {
+            var raw = atob(base64);
+            var uint8Array = new Uint8Array(raw.length);
+            for (var i = 0; i < raw.length; i++) {
+                uint8Array[i] = raw.charCodeAt(i);
+            }
+            return uint8Array;
+        }
+
+
+        //***********************//
+        // Utility Classes used for toggling CSS class, hiding, showing DOM elements etc
+        //***********************//
+            function addClass(id, className) {
+                var doc = document.getElementById(id);
+                doc.className = doc.className.replace(className, "");
+                doc.className = doc.className + className;
+            }
+
+            //Remove a class to a DOM element
+            function removeClass(id, className) {
+                var doc = document.getElementById(id);
+                doc.className = doc.className.replace(className, "");
+            }
+            //Toggle a class in a DOM element
+            function toggleClass(id, from, to) {
+                removeClass(id, from);
+                addClass(id, to);
+            }
+
+            //Hide DOM element
+            function hide(id) {
+                toggleClass(id, 'slds-show', 'slds-hide');
+            }
+
+            function show(id) {
+                toggleClass(id, 'slds-hide', 'slds-show');
+            }
+
+            //Show the spinner element
+            function showSpinner() {
+                toggleClass('_spinner', 'slds-hide', 'slds-show');
+                //showBackdrop();
+            }
+            //Hide the spinner element
+            function hideSpinner() {
+                toggleClass('_spinner', 'slds-show', 'slds-hide');
+                //hideBackdrop();
+            }
+            //Show the backdrop thereby disabling all inputs
+            function showBackdrop() {
+                toggleClass('_backdrop', 'slds-hide', 'slds-show');
+            }
+            //Hide the backdrop, thererby allowing user input
+            function hideBackdrop() {
+                toggleClass('_backdrop', 'slds-show', 'slds-hide');
+            }
+        </script>
+        <apex:includeLightning />
+    </head>
+
+    <body>
+        <!-- Spinner -->
+        <div id="_spinner" class="slds-spinner--large slds-container--center slds-hide">
+            <img src="{!URLFOR($Resource.staplesuxdemo,'/lib/slds202/assets/images/spinners/slds_spinner_brand.gif')}" alt="Loading..." />
+        </div>
+
+        <!-- Lightning component container -->
+        <div id="_priceRight" class="slds-show " />
+
+        <!-- PDF Container -->
+        <div class="slds-grid slds-wrap slds-p-around--small slds-hide " id="_pdfContainer">
+            <div class="sdls-col slds-size--1-of-1">
+                <div class="slds-grid slds-wrap slds-grid--pull-padded">
+                    <div class="slds-col--padded slds-size--1-of-1 slds-medium-size--4-of-6 slds-large-size--4-of-6 slds-form-element__control slds-input-has-icon slds-input-has-icon--right  slds-m-bottom--small">
+                        <input aura:id="_pdfEmail" class="slds-input" type="text" placeholder="Enter email ID..." />
+                    </div>
+                    <div class="slds-col--padded slds-size--1-of-1 slds-medium-size--1-of-6 slds-large-size--1-of-6  slds-m-bottom--small">
+                        <div class="slds-grid">
+                            <button class="slds-button slds-button--brand slds-col--padded slds-size--1-of-1" onclick="createIFrame();">
+                                <svg aria-hidden="true" class="slds-button__icon slds-button__icon--left">
+                                    <use xlink:href="/resource/staplesuxdemo/lib/slds202/assets/icons/utility-sprite/svg/symbols.svg#email"></use>
+                                </svg>
+                                Email
+                            </button>
+                        </div>
+                    </div>
+                    <div class="slds-col--padded slds-size--1-of-1 slds-medium-size--1-of-6 slds-large-size--1-of-6  slds-m-bottom--small">
+                        <div class="slds-grid">
+                            <button class="slds-button slds-button--neutral slds-col--padded slds-size--1-of-1" onclick="goBack();">Go Back</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="slds-col slds-size--1-of-1 pdfContainer " id='_pdfViewerContainer'>
+                <!--<iframe id="_pdfViewer" src="{!URLFOR($Resource.pdfjs,'/web/viewer.html')}" class="pdfIframe "></iframe>-->
+            </div>
+        </div>
+    </body>
+
+    </html>
+</apex:component>

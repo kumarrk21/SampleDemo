@@ -1,0 +1,57 @@
+<apex:page renderAs="pdf" controller="PriceRightController" action="{!parsePriceData}">
+	<div style="background-image:url('{!URLFOR($Resource.StaplesDemo,"/img/QuoteWaterMark.png")}'); background-repeat:repeat-y;">
+		<apex:image style="float:left; padding-top:-10px;" value="{!URLFOR($Resource.StaplesDemo,'/img/StaplesNewLogo.png')}" width="200px"/>
+		<div style="float:right;">06/14/2016</div>
+		<div style="clear:both;"></div>
+	<br/><br/>
+
+	<div style="float:left; width:50%; border-bottom:1px solid black; border-top:1px solid black; padding:5px 0px 5px 0px;">
+		<div>Staples Inc.</div>
+		<div>1000 Main Street</div>
+		<div>New York,&nbsp;NY&nbsp;10017</div>
+		<div>&nbsp;</div>
+		<div>&nbsp;</div>
+		<div>http://www.staplesadvantage.com</div>
+	</div>
+	<div style="float:right; width:50%; border-bottom:1px solid black; border-top:1px solid black; padding:5px 0px 5px 0px;">
+		<div>Tyrion Lannister</div>
+		<div>Hand of the Queen</div>
+		<div>Phone: 1-800-DRAGON</div>
+		<div>tlannister@westros.com</div>
+		<div>&nbsp;</div>
+		<div>&nbsp;</div>
+	</div>
+	<div style="clear:both;"></div>
+	<br/>
+	<div style="font-size:1.2em; padding-bottom:3px;display:block;"><b>Customer Name:</b>{!leadData.Name}</div>
+	<div style="font-size:1.2em; padding-bottom:3px; display:block;"><b>Account:&nbsp;&nbsp;&nbsp;&nbsp;</b>{!accountData.Name}</div>
+	<div style="font-size:1.2em; display:block;"><b>Account#:&nbsp;&nbsp;</b>{!accountData.AccountNumber}</div>
+	<br/><br/>
+	<table style="width:100%; border-spacing:0px;"> 
+		<thead>
+			<tr>
+				<th style=" text-align:center; font-size:11px; background-color:#cccccc; border: 1px black solid; border-right:0px; padding-left:4px;">SKU</th>
+				<th style=" text-align:center; font-size:11px; background-color:#cccccc; border: 1px black solid; border-right:0px; padding-left:4px;">Description</th>
+				<th style=" text-align:center; font-size:11px; background-color:#cccccc; border: 1px black solid; border-right:0px; padding-left:4px;">UOM</th>
+				<th style=" text-align:center; font-size:11px; background-color:#cccccc; border: 1px black solid; border-right:0px; padding-left:4px;">New Price</th>
+                <th style="border-bottom:0px; border-left:1px solid black;"></th>
+
+            </tr>
+		</thead>
+		<tbody>
+				<apex:repeat value="{!skuList}" var="skuItem">
+				<tr>
+					<td style="font-size:11px; border-bottom:1px solid black; border-left:1px solid black; padding:2px 3px 2px 4px;">{!skuItem.skuId}</td>
+					<td style="font-size:11px; border-bottom:1px solid black; border-left:1px solid black; padding:2px 3px 2px 4px;">{!skuItem.description}</td>
+					<td style="font-size:11px; text-align:center; border-bottom:1px solid black; border-left:1px solid black; padding:2px 3px 2px 4px;">{!skuItem.UOM}</td>
+					<td style="font-size:11px; text-align:right; border-bottom:1px solid black; border-left:1px solid black; padding:2px 3px 2px 4px;">{!skuItem.newPrice}</td>
+                    <td style="font-size:11px; border-bottom:1px solid black; border-bottom:0px; border-left:1px solid black;"></td>
+				</tr>
+				</apex:repeat>
+		</tbody>
+	</table>
+        <br/>
+    <div style="font-size:1.2em; padding-bottom:15px;"><b>Comments:</b> {!comments}</div>    
+	<div style="font-size:.8em;">Note: The information above is being provided as a quote and is subject to change.</div>
+	</div>
+</apex:page>

@@ -1,0 +1,5 @@
+<aura:component access="GLOBAL" extensible="false" implements="force:appHostable">
+	<aura:attribute access="GLOBAL" name="pdfData" type="Object" default="" description="PDF data in base64 encoded format"/>
+	<aura:handler name="change" value="{!v.pdfData}" action="{!c.loadpdf}"/>
+	<iframe id="pdfViewer" aura:id="pdfViewer" src="/resource/pdfjs/web/viewer.html" class="pdfContainer"></iframe>
+</aura:component>
